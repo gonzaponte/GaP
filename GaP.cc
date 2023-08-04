@@ -489,19 +489,28 @@ int main(int argc, char *argv[]) {
     physics_list -> RegisterPhysics(new G4RadioactiveDecayPhysics);
     physics_list -> RegisterPhysics(new G4DecayPhysics());
 
+    // Helper for viewing sub-geometries.
+    auto choose_geometry = [] (unsigned geometry_number, unsigned model_version=1) {
+        auto world = get_world();
 
+        auto model = (model_version == 1)
+                   ? model_something_new()
+                   : model_something_old();
 
-    // auto world = get_world();
-    // //auto& place_something_in = place_mesh_holder_in;
-    // //auto& place_something_in = place_quartz_window_holder_in;
-    // //auto& place_something_in = place_pmt_holder_in;
-    // auto place_something_in = [](auto world){ place_rings_in(world, model_new()); };
-    // //auto place_something_in = [](auto world){ place_anode_el_gate_in(world, model_xxx_0()); };
-    // run_manager -> SetUserInitialization(new n4::geometry{[&] { place_something_in(world); return n4::place(world).now(); }});
+        switch(geometry_number) {
+            case 0: return geometry();
+            case 1: place_mesh_holder_in         (world       ); break;
+            case 2: place_quartz_window_holder_in(world       ); break;
+            case 3: place_pmt_holder_in          (world       ); break;
+            case 4: place_rings_in               (world, model); break;
+            case 5: place_anode_el_gate_in       (world, model); break;
+        };
+        return n4::place(world).now();
+    };
 
     auto run_manager = n4::run_manager::create()
         .physics(physics_list)
-        .geometry(geometry)
+        .geometry([&] { return choose_geometry(0); })
         .actions([&] {
             return (new n4::actions{kr83m})
                 -> set(new n4::stepping_action{write_info_and_get_energy_step})
