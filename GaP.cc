@@ -57,6 +57,7 @@ std::unique_ptr<G4PrimaryVertex> generate_vertex(G4ThreeVector pos) {
     return vertex;
 };
 
+
 void generate_particles_in_event(
     G4Event* event,
     std::function<G4ThreeVector()> generate_position,
@@ -68,6 +69,8 @@ void generate_particles_in_event(
     }
     event -> AddPrimaryVertex(vertex.release());
 }
+
+
 void generate_particles_in_event(
     G4Event* event,
     G4ThreeVector position,
@@ -135,8 +138,9 @@ void generate_Ba133(G4Event* event, G4ThreeVector position, G4double /*time*/){
     if (random_event_4 == 0) { /*banner("DECAY 4");*/ generate_particles_in_event(event, position, {{gamma, 303 * keV}}); }
 }
 
+
 void generate_ion_decay(G4Event* event, G4ThreeVector position, G4double /*time*/){
-    std::string IonName{"Kr83m"};
+    std::string IonName{"Co57"};
 
     G4int A, Z;
     G4double E = 0;
@@ -157,8 +161,6 @@ void generate_ion_decay(G4Event* event, G4ThreeVector position, G4double /*time*
 }
 
 
-
-
 auto get_pre_volume_name(G4Step const * const step) {
     return step -> GetPreStepPoint() -> GetTouchableHandle() -> GetVolume() -> GetLogicalVolume() -> GetName();
 };
@@ -169,13 +171,26 @@ int main(int argc, char *argv[]) {
     //G4double time;
     //auto get_time[](auto step){ G4double time = step -> GetDeltaTime();};
 
-    // G4double vessel_out_rad_    = 288./2  *mm;
-    // G4double vessel_out_length_ = 46.679  *cm;
-    // G4double angle =  0 * rad;
-    // G4double source_pos_z = 0 * cm; //range: [-vessel_out_length_/2,vessel_out_length_]
-    // G4double cathode_z = 4.505*mm; //cathode surface, not center
+    auto vessel_out_rad_    = 288./2  * mm;
+    auto vessel_out_length_ =  46.679 * cm;
+    auto angle              =   0     * rad;
+    auto source_pos_z       =   0     * cm; //range: [-vessel_out_length_/2,vessel_out_length_]
+    auto cathode_z          =   4.505 * mm; //cathode surface, not center
+    auto z                  =(-0.07 -14.8) / 2 * mm;
 
-    auto kr83m = [](auto event){generate_ion_decay(event, random_generator_inside_drift(), 0);};
+    G4double         energy_deposit_total;
+    G4double         energy_deposit_total_1;
+    G4double         energy_deposit_total_2;
+    G4int            counts;
+    G4int            eventCounter;
+    std::vector<int> trackIDVector;
+
+    // auto kr83m = [](auto event){generate_ion_decay(event, random_generator_inside_drift(), 0);};
+    auto opticalphoton = n4::find_particle("opticalphoton");
+    auto fixed_z       = std::optional<G4double>{100 * mm}; // TO BE CANGED
+    auto generate_z_pos = [&fixed_z] { return random_generator_inside_drift(fixed_z); };
+    auto generate_optical_photon = [&opticalphoton, &generate_z_pos]  (auto event) { generate_particles_in_event(event, generate_z_pos, {{opticalphoton, 100 * eV}}); };
+
     //auto kr83m= [](auto event){ kr83_generator(event, 32.1473*keV, 9.396*keV,  0.0490, 154.*ns); }; //From the box_source
     //auto gammas = [](auto event){ generate_gammas(event, {0., 0., 167.6775*mm + 50.*mm}, 0); }; //From the box_source
     //auto electrons = [](auto event){generate_electrons(event, {0., 0., 0.}, 0); };
@@ -185,13 +200,6 @@ int main(int argc, char *argv[]) {
     //auto Co57 = [vessel_out_rad_, angle, source_pos_z](auto event){generate_gammas(event, {vessel_out_rad_*cos(angle), vessel_out_rad_*sin(angle), source_pos_z}, 0, 122.);};  //From the surface
     //auto Co57 = [vessel_out_rad_, angle, source_pos_z](auto event){generate_ion_decay(event, {vessel_out_rad_*cos(angle), vessel_out_rad_*sin(angle), source_pos_z}, 0);};  //From the surface
     //auto Am241 = [cathode_z](auto event){generate_ion_decay(event, {0., 0., cathode_z}, 0);};  //From the surface of the cathode
-
-    G4double  energy_deposit_total;
-    G4double  energy_deposit_total_1;
-    G4double  energy_deposit_total_2;
-    G4int  counts;
-    G4int  eventCounter;
-    std::vector<int> trackIDVector;
 
     //auto get_energy = [](G4Step const* step){G4cout << "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX " << step -> GetPreStepPoint() -> GetKineticEnergy() << G4endl; }
     [[maybe_unused]]
@@ -206,7 +214,7 @@ int main(int argc, char *argv[]) {
     auto print_energy = [& energy_deposit_total](G4Event const*){G4cout << "*******************************/// " << energy_deposit_total << " ///*******************************"  << G4endl;} ;
 
     const std::string& filename_event = "EnergyDepositTotal_Kr83m_10bar_sum_withoutTransportation_G4.txt";
-    const std::string& filename_step = "EnergyDepositTotal_Kr83m_10bar_sum_withoutTransportation.txt";
+    const std::string& filename_step  = "EnergyDepositTotal_Kr83m_10bar_sum_withoutTransportation.txt";
 
     //const std::string& filename_event_1 = "EnergyDepositTotal_Co57_10bar_sum_withoutCompton.txt";
     const std::string& filename_event_1 = "EnergyDepositTotal_Kr83m_10bar_sum_withoutTransportation.txt";
@@ -226,7 +234,7 @@ int main(int argc, char *argv[]) {
                 G4cout << "*************************************  :)  " << eventCounter << "  (:  *************************************"  << G4endl;
             }
         }
-    } ;
+    };
 
     [[maybe_unused]]
     auto write_energy_event_double = [& energy_deposit_total_1, & energy_deposit_total_2, & filename_event_1, & filename_event_2, & eventCounter](G4Event const*) {
@@ -251,7 +259,7 @@ int main(int argc, char *argv[]) {
         }
     };
 
-    auto write_info_and_get_energy_step = [&filename_step, &energy_deposit_total, &counts](G4Step const* step) {
+        auto write_info_and_get_energy_step = [&filename_step, &energy_deposit_total, &counts](G4Step const* step) {
 
         G4Track* track = step->GetTrack();
 
@@ -265,17 +273,19 @@ int main(int argc, char *argv[]) {
 
             //const G4Track* track = step->GetTrack();
 
-            G4int PDGEncoding = track->GetDefinition()->GetPDGEncoding();
-            G4int particleID = track->GetParentID();
-            G4int trackID = track->GetTrackID();
-            G4String particleType = track->GetDefinition()->GetParticleName();
-            G4ThreeVector position = step->GetPostStepPoint()->GetPosition();
-            G4double time = step->GetPostStepPoint()->GetGlobalTime();
-            time = time * ns;
+            G4int         PDGEncoding  = track -> GetDefinition   () -> GetPDGEncoding ();
+            G4int         particleID   = track -> GetParentID     ();
+            G4int         trackID      = track -> GetTrackID      ();
+            G4String      particleType = track -> GetDefinition   () -> GetParticleName();
+            G4ThreeVector position     =  step -> GetPostStepPoint() -> GetPosition    ();
+            G4double      step_time    =  step -> GetPostStepPoint() -> GetGlobalTime  ();
+            step_time = step_time / 1e13; // ????
+
+            // G4double time = track -> GetLocalTime();
 
             G4double stepLenght = step->GetStepLength();
             auto velocity = step->GetPreStepPoint()->GetVelocity();
-            auto  speed = step->GetPreStepPoint()->GetBeta() *  CLHEP::c_light;
+            auto  speed   = CLHEP::c_light;
             const G4VProcess* process = step->GetPostStepPoint()->GetProcessDefinedStep();
             G4String interactionType = process->GetProcessName();
 
@@ -290,7 +300,7 @@ int main(int argc, char *argv[]) {
                     file << std::left << std::setw(colWidth) << particleID;
                     file << std::left << std::setw(colWidth) << trackID;
                     file << std::left << std::setw(colWidth) << particleType;
-                    file << std::left << std::setw(colWidth) << time;
+                    file << std::left << std::setw(colWidth) << step_time;
                     file << std::left << std::setw(colWidth) << stepLenght;
                     file << std::left << std::setw(colWidth) << velocity;
                     file << std::left << std::setw(colWidth) << speed;
@@ -307,6 +317,8 @@ int main(int argc, char *argv[]) {
             }
         }
     };
+
+
 
     [[maybe_unused]]
     auto get_energy_double = [&energy_deposit_total_1](G4Step const* step) {
@@ -480,7 +492,34 @@ int main(int argc, char *argv[]) {
     [[maybe_unused]]
     auto reset_eventCounter = [&eventCounter](G4Run const*){ eventCounter = 0; };
 
+    auto delete_file_map_and_reset_eventCounter = [& eventCounter](G4Run const* run){
+      const std::string& filename_map           = "Detector_map_test.txt";
+      const std::string& filename_map_primaries = "Detector_map_test_primaries.txt";
+
+      std::ofstream file1(filename_map, std::ios::out);
+      int colWidth = 20;
+      file1 << std::left << std::setw(colWidth) << "X";
+      file1 << std::left << std::setw(colWidth) << "Y";
+      file1 << std::left << std::setw(colWidth) << "Z";
+      file1 << std::left << std::setw(colWidth) << "Hits check";
+      file1 << std::endl;
+      file1.close();
+
+      std::ofstream file2(filename_map_primaries, std::ios::out);
+      file2 << std::left << std::setw(colWidth) << "X";
+      file2 << std::left << std::setw(colWidth) << "Y";
+      file2 << std::left << std::setw(colWidth) << "Z";
+      file2 << std::left << std::setw(colWidth) << "Hits check primaries";
+      file2 << std::endl;
+      file2.close();
+
+      eventCounter = 0;
+
+    };
+
+
     n4::silence hush{G4cout};
+
 
     G4int verbosity = 0;
     auto physics_list = new FTFP_BERT{verbosity};
@@ -495,18 +534,20 @@ int main(int argc, char *argv[]) {
 
     // Physics list must be attached to run manager before instantiating other user action classes
     run_manager -> SetUserInitialization(physics_list);
-    run_manager -> SetUserInitialization((new n4::actions{kr83m})
-                                                -> set(new n4::stepping_action{write_info_and_get_energy_step})
+    run_manager -> SetUserInitialization((new n4::actions{generate_optical_photon})
+                                                //-> set(new n4::stepping_action{write_info_and_get_energy_step})
                                                 //-> set((new n4::tracking_action) -> post(create_trackIDVector))
                                                 //-> set((new n4::tracking_action) -> pre(delete_track))
-                                                //-> set(new n4::stepping_action{get_energy})
+                                                -> set(new n4::stepping_action{get_energy})
                                                 //-> set(new n4::stepping_action{get_energy_and_check_track})
                                                 //-> set((new n4::event_action) -> begin(reset_energy))
                                                 //-> set((new n4::event_action) -> end(write_energy_event) -> begin(reset_energy_and_trackIDVector))
                                                 -> set((new n4::event_action) -> end(write_energy_event) -> begin(reset_energy))
-                                                -> set((new n4::run_action) -> begin(delete_file_short_and_long)));
+                                                //-> set((new n4::run_action) -> begin(delete_file_short_and_long)));
                                                 //-> set((new n4::run_action) -> end(print_energy)));
                                                 //-> set((new n4::run_action) -> end(reset_eventCounter)));
+                                                -> set((new n4::run_action) -> end(delete_file_map_and_reset_eventCounter)))
+                                                ;
 
        run_manager -> SetUserInitialization(new n4::geometry{geometry});
 
